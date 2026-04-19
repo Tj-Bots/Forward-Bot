@@ -1,0 +1,22 @@
+# Sensitive Configuration
+config.py
+
+# Telegram Sessions
+*.session
+*.session-journal
+
+# Python Cache & Venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+myenv/
+.env
+
+# Database & Logs
+*.db
+*.sqlite3
+*.log
