@@ -21,6 +21,21 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 TEXT = Script.TEXT
 
+PROGRESS = """
+📈 𝗣𝗘𝗥𝗖𝗘𝗡𝗧𝗔𝗚𝗘: {0}%
+
+♻️ ғᴇᴄʜᴇᴅ: {1}
+
+♻️ ғᴏʀᴡᴀʀᴅᴇᴅ: {2}
+
+♻️ ʀᴇᴍᴀɪɴɪɴɢ: {3}
+
+♻️ sᴛᴀᴛᴜs: {4}
+
+⏳ ᴇᴛᴀ: {5}
+
+⏱ ᴜᴘᴛɪᴍᴇ: {6}
+"""
 
 @Client.on_callback_query(filters.regex(r'^start_public'))
 async def pub_(bot, message):
@@ -89,12 +104,25 @@ async def pub_(bot, message):
             await msg_edit(m, "<code>לא ניתן להתחבר שגיאות ה-DB שלך נמצאו קבצי Dup דולג לאחר הפעלה מחדש</code>")
         else:
             user_have_db = True
-    temp.forwardings += 1
+        temp.forwardings += 1
     await db.add_frwd(user)
-    await send(client, user, "<b>🚥 העברה החלה עם</b> [𝙵𝚘𝚛𝚠𝚊𝚛𝚍 𝙼𝚎𝚜𝚜𝚊𝚐𝚎𝚜](https://t.me/The_Auto_Forward_RoBot)")
+    
+    main_bot = await bot.get_me()
+    mention = f"<a href='https://t.me/{main_bot.username}'>{main_bot.first_name}</a>"
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💠 ערוץ עדכונים 💠", url="https://t.me/The_Joker_Bots")]
+    ])
+    await client.send_message(
+        chat_id=user,
+        text=f"<b>🚥 העברה החלה עם {mention}</b>",
+        reply_markup=markup,
+        disable_web_page_preview=True
+    )
     sts.add(time=True)
     sleep = 1 if _bot['is_bot'] else 10
-    await msg_edit(m, "<code>processing...</code>") 
+    await msg_edit(m, "<code>processing...</code>")
+
+
     temp.IS_FRWD_CHAT.append(i.TO)
     temp.lock[user] = locked = True
     dup_files = []
@@ -163,7 +191,7 @@ async def pub_(bot, message):
             temp.IS_FRWD_CHAT.remove(sts.TO)
             return await stop(client, user)
         temp.IS_FRWD_CHAT.remove(sts.TO)
-        await send(client, user, "<b>🎉 העברה הושלמה</b>")
+        await send(client, user, "<b>🎉 העברה הושלמה 🥀</b>")
         await edit(user, m, 'ᴄᴏᴍᴘʟᴇᴛᴇᴅ', "completed", sts) 
         if user_have_db:
             await user_db.drop_all()
@@ -234,19 +262,25 @@ async def edit(user, msg, title, status, sts):
    speed = sts.divide(i.fetched, diff)
    elapsed_time = round(diff) * 1000
    time_to_completion = round(sts.divide(i.total - i.fetched, int(speed))) * 1000
+   
    estimated_total_time = elapsed_time + time_to_completion  
-   progress = "●{0}{1}".format(
-       ''.join(["●" for i in range(math.floor(int(percentage) / 4))]),
-       ''.join(["○" for i in range(24 - math.floor(int(percentage) / 4))]))
-   button =  [[InlineKeyboardButton(progress, f'fwrdstatus#{status}#{estimated_total_time}#{percentage}#{i.id}')]]
+   filled = math.floor(int(percentage) / 10)
+   progress = "{0}{1}".format(
+       ''.join(["▰" for i in range(filled)]),
+       ''.join(["▱" for i in range(10 - filled)]))
+   
+   button = [[InlineKeyboardButton(f"{progress} {percentage}%", f'fwrdstatus#{status}#{estimated_total_time}#{percentage}#{i.id}')]]
+   
    estimated_total_time = TimeFormatter(milliseconds=estimated_total_time)
    estimated_total_time = estimated_total_time if estimated_total_time != '' else '0 s'
-   if status in ["cancelled", "completed"]:
-      button.append([InlineKeyboardButton('• ערוץ עדכונים ​•', url='https://t.me/The_Joker_Bots')])
-   else:
-      button.append([InlineKeyboardButton('• ביטול', 'terminate_frwd')])
-   await msg_edit(msg, text, InlineKeyboardMarkup(button))
 
+   if str(status).lower() in ["cancelled", "completed", "✘ בוטל ✘", "✓ הסתיים ✓"]:
+      button.append([InlineKeyboardButton('💟 קבוצת תמיכה 💟', url='https://t.me/TheJokerChat')])
+      button.append([InlineKeyboardButton('💠 ערוץ עדכונים 💠', url='https://t.me/The_Joker_Bots')])
+   else:
+      button.append([InlineKeyboardButton('• ביטול •', 'terminate_frwd')])
+      
+   await msg_edit(msg, text, InlineKeyboardMarkup(button))
 
 async def is_cancelled(client, user, msg, sts):
    if temp.CANCEL.get(user)==True:
@@ -369,20 +403,28 @@ async def terminate_frwding(bot, m):
 
 @Client.on_callback_query(filters.regex(r'^fwrdstatus'))
 async def status_msg(bot, msg):
-    _, status, est_time, percentage, frwd_id = msg.data.split("#")
-    sts = STS(frwd_id)
-    if not sts.verify():
-       fetched, forwarded, remaining = 0
-    else:
-       fetched, limit, forwarded = sts.get('fetched'), sts.get('limit'), sts.get('total_files')
-       remaining = limit - fetched 
-    est_time = TimeFormatter(milliseconds=est_time)
-    start_time = sts.get('start')
-    uptime = await get_bot_uptime(start_time)
-    total = sts.get('limit') - sts.get('fetched')
-    time_to_comple = await complete_time(total)
-    est_time = est_time if (est_time != '' or status not in ['completed', 'cancelled']) else '0 s'
-    return await msg.answer(PROGRESS.format(percentage, fetched, forwarded, remaining, status, time_to_comple, uptime), show_alert=True)
+    try:
+        _, status, est_time, percentage, frwd_id = msg.data.split("#")
+        sts = STS(frwd_id)
+        if not sts.verify():
+           fetched, forwarded, remaining = 0, 0, 0
+        else:
+           fetched = sts.get('fetched')
+           limit = sts.get('limit')
+           forwarded = sts.get('total_files')
+           remaining = limit - fetched if limit > fetched else 0
+        
+        start_time = sts.get('start')
+        uptime = await get_bot_uptime(start_time) if start_time else "0s"
+        time_to_comple = await complete_time(remaining)
+        
+        return await msg.answer(
+            PROGRESS.format(percentage, fetched, forwarded, remaining, status, time_to_comple, uptime), 
+            show_alert=True
+        )
+    except Exception as e:
+        print(e)
+        await msg.answer("Error loading status...", show_alert=True)
 
 
 @Client.on_callback_query(filters.regex(r'^close_btn$'))
@@ -491,7 +533,6 @@ async def restart_pending_forwads(bot, user):
         start = None
     sts.add(time=True, start_time=start)
     sleep = 1 if _bot['is_bot'] else 10
-    #await msg_edit(m, "<code>processing...</code>") 
     temp.IS_FRWD_CHAT.append(i.TO)
     temp.lock[user] = locked = True
     dup_files = []
@@ -594,7 +635,6 @@ async def restart_forwards(client):
     print('Done')
 
 
-
 async def update_forward(user_id, chat_id, start_time, toid, last_id, limit, forward_id, msg_id, fetched, total, duplicate, deleted, skip, filterd):
     details = {
         'chat_id': chat_id,
@@ -616,7 +656,8 @@ async def update_forward(user_id, chat_id, start_time, toid, last_id, limit, for
 
 
 async def get_bot_uptime(start_time):
-    # Calculate the uptime in seconds
+    if not start_time:
+        return "0s"
     uptime_seconds = int(time.time() - start_time)
     uptime_minutes = uptime_seconds // 60
     uptime_hours = uptime_minutes // 60
@@ -636,8 +677,10 @@ async def get_bot_uptime(start_time):
 
 
 async def complete_time(total_files, files_per_minute=30):
+    if total_files <= 0:
+        return "0s"
     minutes_required = total_files / files_per_minute
-    seconds_required = minutes_required * 60
+    seconds_required = int(minutes_required * 60)
     weeks = seconds_required // (7 * 24 * 60 * 60)
     days = (seconds_required % (7 * 24 * 60 * 60)) // (24 * 60 * 60)
     hours = (seconds_required % (24 * 60 * 60)) // (60 * 60)
@@ -654,4 +697,4 @@ async def complete_time(total_files, files_per_minute=30):
         time_format += f"{int(minutes)}m, "
     if seconds > 0:
         time_format += f"{int(seconds)}s"
-    return time_format
+    return time_format if time_format else "0s"
